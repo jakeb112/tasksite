@@ -3,11 +3,17 @@ import json, os
 import requests
 from datetime import datetime
 
-WEBHOOK_URL = "https://discord.com/api/webhooks/1448095964660240516/Qu5RKHzKZif4k0aKb8VqR5wNFDtTDnbABgwYjm-zbPx_OCTU50V_D0sv5KRXaxbO81Bb"   # <-- replace this later
+# -----------------------------------------
+# CONFIG
+# -----------------------------------------
+WEBHOOK_URL = "YOUR_WEBHOOK_URL_HERE"   # <<--- PUT YOUR DISCORD WEBHOOK HERE
 TASKS_FILE = "tasks.json"
 
 app = Flask(__name__)
 
+# -----------------------------------------
+# TASK STORAGE LOGIC
+# -----------------------------------------
 def load_tasks():
     if not os.path.exists(TASKS_FILE):
         return []
@@ -23,15 +29,20 @@ def get_next_id(tasks):
         return 1
     return max(t["id"] for t in tasks) + 1
 
+# -----------------------------------------
+# DISCORD EMBED BUILDER
+# -----------------------------------------
 def build_embed(tasks):
     pending = [t for t in tasks if not t["done"]]
     desc = f"You have **{len(pending)}** pending tasks." if pending else "No pending tasks 🎉"
 
-    fields = [{
-        "name": f"{t['id']}. {t['title']}",
-        "value": t.get("note", ""),
-        "inline": False
-    } for t in pending]
+    fields = []
+    for t in pending:
+        fields.append({
+            "name": f"{t['id']}. {t['title']}",
+            "value": t.get("note", ""),
+            "inline": False
+        })
 
     embed = {
         "title": "📝 Task List",
@@ -45,11 +56,21 @@ def build_embed(tasks):
 
     return embed
 
+# -----------------------------------------
+# SEND TO DISCORD
+# -----------------------------------------
 def send_to_discord():
     tasks = load_tasks()
     embed = build_embed(tasks)
-    requests.post(WEBHOOK_URL, json={"embeds": [embed]})
+    resp = requests.post(WEBHOOK_URL, json={"embeds": [embed]})
 
+    # Logs visible on Render (helpful for debugging)
+    print("Discord status:", resp.status_code)
+    print("Discord response:", resp.text)
+
+# -----------------------------------------
+# FLASK ROUTES
+# -----------------------------------------
 @app.route("/")
 def index():
     tasks = load_tasks()
@@ -81,5 +102,17 @@ def send_now():
     send_to_discord()
     return redirect(url_for("index"))
 
+# -----------------------------------------
+# MAIN (WEBSITE MODE + CRON MODE)
+# -----------------------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--send", action="store_true", help="Send tasks to Discord and exit")
+    args = parser.parse_args()
+
+    if args.send:
+        send_to_discord()
+    else:
+        app.run()
