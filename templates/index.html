@@ -1,42 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Your Tasks</h1>
+<div class="page-header">
+    <h1>Your Tasks</h1>
+</div>
 
-<form action="{{ url_for('add_task') }}" method="post" class="task-form">
-    <input type="text" name="title" placeholder="Task title" required>
-    <input type="text" name="note" placeholder="Note / due date (optional)">
-    <button type="submit">Add Task</button>
-</form>
+<div class="card">
+    <form action="{{ url_for('add_task') }}" method="POST">
+        <input type="text" name="title" placeholder="Task title" required>
+        <input type="text" name="note" placeholder="Note / due date (optional)">
+        <button class="btn" type="submit">Add Task</button>
+    </form>
+</div>
 
-<h2>Current Tasks</h2>
+<div class="page-header">
+    <h2>Current Tasks</h2>
+</div>
 
 {% if tasks %}
-    {% for t in tasks %}
-        <div class="task">
-            <div class="task-main {{ 'done' if t.done else '' }}">
-                {{ t.id }}. {{ t.title }}
-                {% if t.note %}
-                    <span class="note">— {{ t.note }}</span>
+    <div class="task-list">
+        {% for task in tasks %}
+            <div class="task-card {% if task.done %}task-done{% endif %}">
+                <div class="task-info">
+                    <p class="task-title">{{ loop.revindex }}. {{ task.title }}</p>
+                    {% if task.note %}
+                        <p class="task-note">{{ task.note }}</p>
+                    {% endif %}
+                    {% if task.done %}
+                        <p class="task-status">✔ Completed</p>
+                    {% endif %}
+                </div>
+
+                {% if not task.done %}
+                    <form action="{{ url_for('mark_done', task_id=task.id) }}" method="POST">
+                        <button class="btn-small">Mark done</button>
+                    </form>
                 {% endif %}
             </div>
-
-            {% if not t.done %}
-                <form action="{{ url_for('mark_done', task_id=t.id) }}" method="post">
-                    <button type="submit">Mark done</button>
-                </form>
-            {% else %}
-                <span class="badge">Done</span>
-            {% endif %}
-        </div>
-    {% endfor %}
+        {% endfor %}
+    </div>
 {% else %}
     <p>No tasks yet. Add one above!</p>
 {% endif %}
 
-<h2>Discord</h2>
-<form action="{{ url_for('send_now') }}" method="post">
-    <button type="submit">Send my pending tasks to Discord</button>
+<div class="page-header">
+    <h2>Discord</h2>
+</div>
+
+<form action="{{ url_for('send_now') }}" method="POST">
+    <button class="btn btn-discord">Send my pending tasks to Discord</button>
 </form>
 
 {% endblock %}

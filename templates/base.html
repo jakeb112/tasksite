@@ -17,18 +17,15 @@
         {% if current_user.is_authenticated %}
             <span class="user-email">{{ current_user.email }}</span>
 
-            <a href="{{ url_for('index') }}"
-               class="{% if request.path == '/' %}active{% endif %}">
+            <a href="{{ url_for('index') }}" class="{% if request.path == '/' %}active{% endif %}">
                 Tasks
             </a>
 
-            <a href="{{ url_for('settings') }}"
-               class="{% if '/settings' in request.path %}active{% endif %}">
+            <a href="{{ url_for('settings') }}" class="{% if '/settings' in request.path %}active{% endif %}">
                 Settings
             </a>
 
             <a href="{{ url_for('logout') }}">Logout</a>
-
         {% else %}
             <a href="{{ url_for('login') }}">Login</a>
             <a href="{{ url_for('register') }}">Register</a>
@@ -36,17 +33,20 @@
     </div>
 </nav>
 
-<div class="container">
+<main class="main-container">
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash flash-{{ category }}">{{ message }}</div>
-            {% endfor %}
+            <div class="flash-wrapper">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
         {% endif %}
     {% endwith %}
 
     {% block content %}{% endblock %}
-</div>
+</main>
 
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

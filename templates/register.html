@@ -1,21 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Register</h1>
+<div class="page-header">
+    <h1>Create an account</h1>
+    <p class="page-subtext">
+        Sign up to keep your tasks and Discord reminders in one place.
+    </p>
+</div>
 
-<form action="{{ url_for('register') }}" method="post" class="auth-form">
-    <label>Email</label>
-    <input type="email" name="email" required>
+<div class="card settings-card">
+    <form action="{{ url_for('register') }}" method="POST">
 
-    <label>Password</label>
-    <input type="password" name="password" required>
+        <label>Email</label>
+        <input type="email" name="email" placeholder="you@example.com" required>
 
-    <label>Confirm Password</label>
-    <input type="password" name="confirm" required>
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Choose a password" required>
 
-    <button type="submit">Create account</button>
-</form>
+        <label>Confirm password</label>
+        <input type="password" name="confirm" placeholder="Repeat your password" required>
 
-<p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
+        <button class="btn btn-primary" type="submit">Create Account</button>
+
+        <p class="settings-note" style="margin-top: 12px;">
+            Already have an account?
+            <a href="{{ url_for('login') }}">Log in instead</a>.
+        </p>
+    </form>
+</div>
 
 {% endblock %}

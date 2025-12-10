@@ -1,34 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Settings</h1>
+<div class="page-header">
+    <h1>Settings</h1>
+    <p class="page-subtext">
+        Manage your Discord webhook and how often you want automatic reminders.
+    </p>
+</div>
 
-<form action="{{ url_for('settings') }}" method="post" class="auth-form">
-    <label>Your Discord Webhook URL</label>
-    <input type="text" name="webhook" value="{{ user.webhook_url or '' }}">
+<div class="card settings-card">
 
-    <label>How often to ping you?</label>
-    <select name="ping_interval_hours">
-        {% for h in range(0, 25) %}
-            <option value="{{ h }}"
-                {% if user.ping_interval_hours == h %}selected{% endif %}>
-                {% if h == 0 %}
-                    Disabled (no automatic pings)
-                {% elif h == 1 %}
-                    Every 1 hour
-                {% else %}
-                    Every {{ h }} hours
-                {% endif %}
-            </option>
-        {% endfor %}
-    </select>
+    <form action="{{ url_for('settings') }}" method="POST">
 
-    <button type="submit">Save</button>
-</form>
+        <label class="settings-label">Discord Webhook URL</label>
+        <input
+            type="text"
+            name="webhook"
+            placeholder="Paste your Discord webhook here"
+            value="{{ user.webhook_url or '' }}"
+        >
+        <p class="settings-note">
+            Each user can send their tasks to their own Discord channel.<br>
+            Leave this blank if you don't want Discord reminders.
+        </p>
 
-<p>
-    Automatic pings are controlled by your chosen interval.
-    Manual “Send to Discord” ignores the schedule and can be used anytime.
-</p>
+        <div class="divider"></div>
+
+        <label class="settings-label">Automatic Ping Interval</label>
+        <select name="ping_interval_hours" class="settings-select">
+            {% for h in range(0, 25) %}
+                <option value="{{ h }}" {% if user.ping_interval_hours == h %}selected{% endif %}>
+                    {% if h == 0 %}
+                        Disabled — only send when I click the button manually
+                    {% elif h == 1 %}
+                        Every 1 hour
+                    {% else %}
+                        Every {{ h }} hours
+                    {% endif %}
+                </option>
+            {% endfor %}
+        </select>
+
+        <p class="settings-note">
+            The system checks every hour. You are pinged only if your chosen interval has passed.
+        </p>
+
+        <button class="btn btn-save" type="submit">Save Settings</button>
+
+    </form>
+
+</div>
 
 {% endblock %}
