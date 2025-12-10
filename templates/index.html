@@ -1,36 +1,42 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>📝 Tasks</h1>
+<h1>Your Tasks</h1>
 
-<form action="{{ url_for('add_task') }}" method="post">
-    <input type="text" name="title" placeholder="Task title" required><br><br>
-    <input type="text" name="note" placeholder="Note (optional)"><br><br>
-    <button>Add Task</button>
+<form action="{{ url_for('add_task') }}" method="post" class="task-form">
+    <input type="text" name="title" placeholder="Task title" required>
+    <input type="text" name="note" placeholder="Note / due date (optional)">
+    <button type="submit">Add Task</button>
 </form>
 
 <h2>Current Tasks</h2>
+
 {% if tasks %}
     {% for t in tasks %}
         <div class="task">
-            <div class="{{ 'done' if t.done else '' }}">
-                {{ t.id }}. {{ t.title }} — {{ t.note }}
+            <div class="task-main {{ 'done' if t.done else '' }}">
+                {{ t.id }}. {{ t.title }}
+                {% if t.note %}
+                    <span class="note">— {{ t.note }}</span>
+                {% endif %}
             </div>
 
             {% if not t.done %}
                 <form action="{{ url_for('mark_done', task_id=t.id) }}" method="post">
-                    <button>Mark done</button>
+                    <button type="submit">Mark done</button>
                 </form>
+            {% else %}
+                <span class="badge">Done</span>
             {% endif %}
         </div>
     {% endfor %}
 {% else %}
-    <p>No tasks yet.</p>
+    <p>No tasks yet. Add one above!</p>
 {% endif %}
 
 <h2>Discord</h2>
 <form action="{{ url_for('send_now') }}" method="post">
-    <button>Send to Discord</button>
+    <button type="submit">Send my pending tasks to Discord</button>
 </form>
 
 {% endblock %}
