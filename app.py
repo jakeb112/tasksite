@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import (
     Flask,
@@ -37,7 +37,6 @@ DATABASE_URL = _normalize_db_url(
     os.environ.get("DATABASE_URL", "sqlite:///local.db")
 )
 
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "YOUR_WEBHOOK_HERE")
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 app = Flask(__name__)
@@ -55,10 +54,18 @@ login_manager.login_view = "login"
 # MODELS
 # -----------------------------------------
 
-class User(db.Model, UserMixin):
+class User(UserMixin, db.Model):
+    __tablename__ = "users"
+
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+
+    # Per-user Discord + schedule
+    webhook_url = db.Column(db.String(300))          # user's own webhook
+    ping_interval_hours = db.Column(db.Integer, default=0)  # 0 = disabled
+    last_ping_at = db.Column(db.DateTime, nullable=True)    # when we last auto-pinged
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     tasks = db.relationship("Task", backref="user", lazy=True)
@@ -71,13 +78,15 @@ class User(db.Model, UserMixin):
 
 
 class Task(db.Model):
+    __tablename__ = "tasks"
+
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
     note = db.Column(db.Text)
     done = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
 
 # -----------------------------------------
@@ -93,8 +102,8 @@ def load_user(user_id):
 # DISCORD
 # -----------------------------------------
 
-def build_embed(tasks):
-    """Build Discord embed from a list of Task objects."""
+def build_embed_for_user(user, tasks):
+    """Build a Discord embed for a single user's tasks."""
     pending = [t for t in tasks if not t.done]
     if pending:
         desc = f"You have **{len(pending)}** pending task(s)."
@@ -113,7 +122,7 @@ def build_embed(tasks):
         )
 
     embed = {
-        "title": "📝 Task List",
+        "title": f"📝 Tasks for {user.email}",
         "description": desc,
         "color": 0x00FF99,
         "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -125,32 +134,68 @@ def build_embed(tasks):
     return embed
 
 
-def send_to_discord(for_user: User | None = None):
-    """Send pending tasks to Discord. If for_user is given, only their tasks."""
-    if not WEBHOOK_URL or "discord" not in WEBHOOK_URL:
-        print("WEBHOOK_URL not set or invalid, skipping Discord send")
+def send_to_discord_for_user(user: User):
+    """Send one user's pending tasks to their own webhook (ignores schedule)."""
+    webhook_url = user.webhook_url
+    if not webhook_url:
+        print(f"User {user.email} has no webhook set, skipping.")
         return
 
     with app.app_context():
-        if for_user is None:
-            tasks = Task.query.filter_by(done=False).order_by(Task.id).all()
-        else:
-            tasks = (
-                Task.query.filter_by(user_id=for_user.id, done=False)
-                .order_by(Task.id)
-                .all()
-            )
+        tasks = (
+            Task.query.filter_by(user_id=user.id, done=False)
+            .order_by(Task.id)
+            .all()
+        )
 
-        embed = build_embed(tasks)
-        payload = {"embeds": [embed]}
+    if not tasks:
+        print(f"User {user.email} has no pending tasks, skipping.")
+        return
 
-        try:
-            resp = requests.post(WEBHOOK_URL, json=payload, timeout=10)
-            print("Discord status:", resp.status_code)
-            print("Discord response:", resp.text)
-            resp.raise_for_status()
-        except Exception as e:
-            print("Error sending to Discord:", repr(e))
+    embed = build_embed_for_user(user, tasks)
+    payload = {"embeds": [embed]}
+
+    try:
+        resp = requests.post(webhook_url, json=payload, timeout=10)
+        print(f"[{user.email}] Discord status:", resp.status_code)
+        print(f"[{user.email}] Discord response:", resp.text)
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"Error sending to Discord for {user.email}:", repr(e))
+
+
+def should_ping_user(user: User, now: datetime) -> bool:
+    """
+    Decide if cron should ping this user now based on:
+    - webhook set
+    - ping_interval_hours
+    - last_ping_at
+    """
+    if not user.webhook_url:
+        return False
+
+    interval = user.ping_interval_hours or 0
+    if interval <= 0:
+        # 0 or negative = disabled
+        return False
+
+    if user.last_ping_at is None:
+        # never pinged before -> ping
+        return True
+
+    return (now - user.last_ping_at) >= timedelta(hours=interval)
+
+
+def send_to_discord_all_users():
+    """Cron mode: send for all users who are due based on their interval."""
+    now = datetime.utcnow()
+    with app.app_context():
+        users = User.query.all()
+        for user in users:
+            if should_ping_user(user, now):
+                send_to_discord_for_user(user)
+                user.last_ping_at = now  # update last ping time
+        db.session.commit()
 
 
 # -----------------------------------------
@@ -221,6 +266,37 @@ def logout():
 
 
 # -----------------------------------------
+# ROUTES: SETTINGS (WEBHOOK + INTERVAL)
+# -----------------------------------------
+
+@app.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings():
+    if request.method == "POST":
+        webhook = request.form.get("webhook", "").strip()
+        interval_raw = request.form.get("ping_interval_hours", "0").strip()
+
+        try:
+            interval = int(interval_raw)
+        except ValueError:
+            interval = 0
+
+        # clamp 0–24
+        if interval < 0:
+            interval = 0
+        if interval > 24:
+            interval = 24
+
+        current_user.webhook_url = webhook or None
+        current_user.ping_interval_hours = interval
+        db.session.commit()
+        flash("Settings saved.", "success")
+        return redirect(url_for("settings"))
+
+    return render_template("settings.html", user=current_user)
+
+
+# -----------------------------------------
 # ROUTES: TASKS
 # -----------------------------------------
 
@@ -270,14 +346,14 @@ def mark_done(task_id):
 @app.route("/send", methods=["POST"])
 @login_required
 def send_now():
-    # send only current user's tasks
-    send_to_discord(for_user=current_user)
-    flash("Tasks sent to Discord.", "success")
+    # Manual send: ignore schedule; just send for this user
+    send_to_discord_for_user(current_user)
+    flash("Tasks sent to your Discord webhook (if set).", "success")
     return redirect(url_for("index"))
 
 
 # -----------------------------------------
-# DB INIT ROUTE (simple hacky migration)
+# DB INIT ROUTE
 # -----------------------------------------
 
 @app.route("/init-db")
@@ -298,12 +374,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--send",
         action="store_true",
-        help="Send all pending tasks to Discord and exit (cron mode).",
+        help="Send due users' pending tasks to their webhooks and exit (cron).",
     )
     args = parser.parse_args()
 
     if args.send:
-        # In CLI/cron mode we send *all* users' tasks
-        send_to_discord(for_user=None)
+        send_to_discord_all_users()
     else:
         app.run(debug=True)
