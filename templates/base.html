@@ -1,36 +1,52 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tasksite</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<div class="container">
-    <header class="topbar">
-        <div class="logo">📝 Tasksite</div>
-        <nav>
-            {% if current_user.is_authenticated %}
-                <span class="user-email">{{ current_user.email }}</span>
-                <a href="{{ url_for('index') }}">Tasks</a>
-                <a href="{{ url_for('logout') }}">Logout</a>
-            {% else %}
-                <a href="{{ url_for('login') }}">Login</a>
-                <a href="{{ url_for('register') }}">Register</a>
-            {% endif %}
-        </nav>
-    </header>
 
+<nav class="top-nav">
+    <div class="nav-left">
+        <a href="{{ url_for('index') }}" class="logo">📝 Tasksite</a>
+    </div>
+
+    <div class="nav-right">
+        {% if current_user.is_authenticated %}
+            <span class="user-email">{{ current_user.email }}</span>
+
+            <a href="{{ url_for('index') }}"
+               class="{% if request.path == '/' %}active{% endif %}">
+                Tasks
+            </a>
+
+            <a href="{{ url_for('settings') }}"
+               class="{% if '/settings' in request.path %}active{% endif %}">
+                Settings
+            </a>
+
+            <a href="{{ url_for('logout') }}">Logout</a>
+
+        {% else %}
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}">Register</a>
+        {% endif %}
+    </div>
+</nav>
+
+<div class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <ul class="flash-list">
-          {% for category, message in messages %}
-            <li class="flash flash-{{ category }}">{{ message }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
     {% endwith %}
 
     {% block content %}{% endblock %}
 </div>
+
 </body>
 </html>
