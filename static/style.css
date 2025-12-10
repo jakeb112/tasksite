@@ -1,0 +1,28 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #1e1e1e;
+    color: white;
+}
+
+.container {
+    max-width: 600px;
+    margin: 40px auto;
+}
+
+.task {
+    padding: 10px 0;
+    border-bottom: 1px solid #444;
+}
+
+.done {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+button {
+    padding: 6px 12px;
+    background: #10b981;
+    border: none;
+    border-radius: 4px;
+    color: white;
+}
