@@ -6,7 +6,7 @@ from datetime import datetime
 # -----------------------------------------
 # CONFIG
 # -----------------------------------------
-WEBHOOK_URL = "YOUR_WEBHOOK_URL_HERE"   # <<--- PUT YOUR DISCORD WEBHOOK HERE
+WEBHOOK_URL = "https://discord.com/api/webhooks/1448095964660240516/Qu5RKHzKZif4k0aKb8VqR5wNFDtTDnbABgwYjm-zbPx_OCTU50V_D0sv5KRXaxbO81Bb"   # <<--- PUT YOUR DISCORD WEBHOOK HERE
 TASKS_FILE = "tasks.json"
 
 app = Flask(__name__)
